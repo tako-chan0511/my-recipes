@@ -23,14 +23,19 @@
         </div>
       </div>
 
-      <!-- ★★★ 追加: 材料・時間フィルター ★★★ -->
+      <!-- ★★★ 変更: 高機能フィルター ★★★ -->
       <div v-if="recipes.length > 0" class="additional-filters">
+        <!-- 材料フィルター (プルダウン) -->
         <div class="filter-group">
-          <label for="ingredient-filter">材料で絞り込む:</label>
-          <input id="ingredient-filter" type="text" v-model="ingredientFilter" placeholder="例: チーズ、きのこ" />
+          <label for="ingredient-filter">この材料を含む:</label>
+          <select id="ingredient-filter" v-model="mustIncludeIngredient">
+            <option value="">指定なし</option>
+            <option v-for="ing in popularIngredients" :key="ing" :value="ing">{{ ing }}</option>
+          </select>
         </div>
+        <!-- 調理時間フィルター -->
         <div class="filter-group">
-          <label for="time-filter">調理時間で絞り込む:</label>
+          <label for="time-filter">調理時間:</label>
           <select id="time-filter" v-model="timeFilter">
             <option value="">指定なし</option>
             <option value="10">10分以内</option>
@@ -39,16 +44,26 @@
           </select>
         </div>
       </div>
+      
+      <!-- ★★★ 追加: こだわり条件フィルター ★★★ -->
+      <div v-if="recipes.length > 0" class="special-filters">
+        <label class="filter-group-label">こだわり条件 (含まない材料):</label>
+        <div class="checkbox-group">
+          <div v-for="filter in exclusionFilters" :key="filter.id" class="checkbox-wrapper">
+            <input type="checkbox" :id="filter.id" :value="filter.keyword" v-model="selectedExclusions" />
+            <label :for="filter.id">{{ filter.label }}</label>
+          </div>
+        </div>
+      </div>
+
 
       <div v-if="loading" class="loading-spinner"></div>
       <div v-if="error" class="error-message">{{ error }}</div>
       
-      <!-- ★★★ 変更: filteredRecipesを使う ★★★ -->
       <div v-if="!loading && filteredRecipes.length === 0 && !error" class="no-results">
         <p>表示するレシピがありません。<br>カテゴリを選択するか、フィルター条件を変更してください。</p>
       </div>
 
-      <!-- ★★★ 変更: filteredRecipesをループ ★★★ -->
       <div class="results-grid">
         <div v-for="(recipe, index) in filteredRecipes" :key="recipe.recipeId" class="recipe-card">
           <div class="rank">{{ index + 1 }}位</div>
@@ -83,6 +98,14 @@ interface Recipe {
   recipeIndication: string;
 }
 
+// --- 定数データ ---
+const popularIngredients = ['卵', '牛乳', 'チーズ', '鶏肉', '豚肉', '牛肉', 'きのこ', 'トマト', '玉ねぎ'];
+const exclusionFilters = [
+  { id: 'exclude-egg', label: '卵アレルギー対応', keyword: '卵' },
+  { id: 'exclude-milk', label: '乳製品アレルギー対応', keyword: '牛乳' },
+  { id: 'exclude-pork', label: '豚肉不使用 (ハラル等)', keyword: '豚肉' },
+];
+
 // --- リアクティブなState ---
 const largeCategories = ref<Category[]>([]);
 const mediumCategories = ref<Category[]>([]);
@@ -93,9 +116,10 @@ const recipes = ref<Recipe[]>([]);
 const loading = ref(false);
 const error = ref('');
 
-// ★★★ 追加: フィルター用のState ★★★
-const ingredientFilter = ref('');
+// ★★★ 変更: フィルター用のState ★★★
+const mustIncludeIngredient = ref('');
 const timeFilter = ref('');
+const selectedExclusions = ref<string[]>([]); // チェックボックスで選択された除外キーワード
 
 // --- Computed Properties ---
 const mediumCategoriesToShow = computed(() => {
@@ -103,28 +127,37 @@ const mediumCategoriesToShow = computed(() => {
   return mediumCategories.value.filter(cat => cat.parentCategoryId === selectedLargeCategory.value);
 });
 
-// ★★★ 追加: 絞り込み後のレシピリスト ★★★
 const filteredRecipes = computed(() => {
   let filtered = [...recipes.value];
 
-  // 材料フィルター
-  if (ingredientFilter.value) {
-    const query = ingredientFilter.value.toLowerCase();
+  // 1. この材料を含む (Must Include)
+  if (mustIncludeIngredient.value) {
+    const query = mustIncludeIngredient.value.toLowerCase();
     filtered = filtered.filter(recipe => 
       recipe.recipeMaterial.some(material => material.toLowerCase().includes(query))
     );
   }
 
-  // 調理時間フィルター
+  // 2. 調理時間
   if (timeFilter.value) {
     const maxTime = parseInt(timeFilter.value, 10);
     filtered = filtered.filter(recipe => {
-      const match = recipe.recipeIndication.match(/(\d+)/); // "約15分" から "15" を抽出
+      const match = recipe.recipeIndication.match(/(\d+)/);
       if (match) {
         const recipeTime = parseInt(match[1], 10);
         return recipeTime <= maxTime;
       }
-      return true; // 時間情報がない場合は除外しない
+      return true;
+    });
+  }
+
+  // 3. こだわり条件 (Exclude)
+  if (selectedExclusions.value.length > 0) {
+    filtered = filtered.filter(recipe => {
+      // 選択された除外キーワードのいずれかが、材料に含まれていたら "false" (除外)
+      return !selectedExclusions.value.some(exclusionKeyword => 
+        recipe.recipeMaterial.some(material => material.toLowerCase().includes(exclusionKeyword.toLowerCase()))
+      );
     });
   }
 
@@ -161,8 +194,9 @@ const getRanking = async () => {
   error.value = '';
   recipes.value = [];
   // フィルターをリセット
-  ingredientFilter.value = '';
+  mustIncludeIngredient.value = '';
   timeFilter.value = '';
+  selectedExclusions.value = [];
 
   try {
     const response = await fetch(`/api/recipe-ranking?categoryId=${categoryId}`);
@@ -253,7 +287,6 @@ h1 {
   appearance: none;
 }
 
-/* ★★★ 追加: フィルターUIのスタイル ★★★ */
 .additional-filters {
   display: flex;
   justify-content: center;
@@ -261,7 +294,7 @@ h1 {
   padding: 1.5rem;
   background-color: var(--card-background-color);
   border-radius: 8px;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem; /* 変更 */
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
@@ -282,7 +315,42 @@ h1 {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 1rem;
+  width: 200px; /* 幅を固定 */
 }
+
+/* ★★★ 追加: こだわり条件フィルターのスタイル ★★★ */
+.special-filters {
+  padding: 1.5rem;
+  background-color: var(--card-background-color);
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.filter-group-label {
+  font-weight: bold;
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+.checkbox-group {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.checkbox-wrapper input[type="checkbox"] {
+  width: 1.2em;
+  height: 1.2em;
+  cursor: pointer;
+}
+.checkbox-wrapper label {
+  cursor: pointer;
+}
+
 
 .loading-spinner {
   border: 4px solid rgba(0, 0, 0, 0.1);
