@@ -23,20 +23,18 @@
         </div>
       </div>
 
-      <!-- 高機能フィルター -->
-      <div v-if="recipes.length > 0" class="additional-filters">
-        <!-- 材料フィルター (プルダウン) -->
+      <!-- ★★★ 変更: フィルターUIをシンプルに ★★★ -->
+      <div class="additional-filters" :class="{ disabled: recipes.length === 0 }">
         <div class="filter-group">
           <label for="ingredient-filter">この材料を含む:</label>
-          <select id="ingredient-filter" v-model="mustIncludeIngredient">
+          <select id="ingredient-filter" v-model="mustIncludeIngredient" :disabled="recipes.length === 0">
             <option value="">指定なし</option>
             <option v-for="ing in popularIngredients" :key="ing" :value="ing">{{ ing }}</option>
           </select>
         </div>
-        <!-- 調理時間フィルター -->
         <div class="filter-group">
           <label for="time-filter">調理時間:</label>
-          <select id="time-filter" v-model="timeFilter">
+          <select id="time-filter" v-model="timeFilter" :disabled="recipes.length === 0">
             <option value="">指定なし</option>
             <option value="10">10分以内</option>
             <option value="20">20分以内</option>
@@ -45,13 +43,11 @@
         </div>
       </div>
       
-      <!-- こだわり条件フィルター -->
-      <div v-if="recipes.length > 0" class="special-filters">
+      <div class="special-filters" :class="{ disabled: recipes.length === 0 }">
         <label class="filter-group-label">こだわり条件 (含まない材料):</label>
         <div class="checkbox-group">
           <div v-for="filter in exclusionFilters" :key="filter.id" class="checkbox-wrapper">
-            <!-- ★★★ 変更: v-modelとvalueを修正 ★★★ -->
-            <input type="checkbox" :id="filter.id" :value="filter.id" v-model="selectedExclusionIds" />
+            <input type="checkbox" :id="filter.id" :value="filter.id" v-model="selectedExclusionIds" :disabled="recipes.length === 0" />
             <label :for="filter.id">{{ filter.label }}</label>
           </div>
         </div>
@@ -97,11 +93,12 @@ interface Recipe {
   recipeUrl: string;
   recipeMaterial: string[];
   recipeIndication: string;
+  recipeCost: string;
+  calories: string;
 }
 
 // --- 定数データ ---
 const popularIngredients = ['卵', '牛乳', 'チーズ', '鶏肉', '豚肉', '牛肉', 'きのこ', 'トマト', '玉ねぎ'];
-// ★★★ 変更: 複数のキーワードをチェックできるように改善 ★★★
 const exclusionFilters = [
   { id: 'exclude-egg', label: '卵アレルギー対応', keywords: ['卵', 'たまご', 'egg'] },
   { id: 'exclude-milk', label: '乳製品アレルギー対応', keywords: ['牛乳', 'ミルク', 'チーズ', 'バター', 'ヨーグルト', '生クリーム', '乳', 'milk', 'cheese', 'butter', 'yogurt', 'cream'] },
@@ -120,8 +117,30 @@ const error = ref('');
 
 const mustIncludeIngredient = ref('');
 const timeFilter = ref('');
-// ★★★ 変更: 選択されたフィルターのIDを保持するように変更 ★★★
 const selectedExclusionIds = ref<string[]>([]);
+
+// ★★★ 削除: カロリーと値段のStateを削除 ★★★
+// const calorieFilter = ref(2000);
+// const costFilter = ref(3000);
+
+// ★★★ 改善: 文字列から最大値を取得するヘルパー関数 ★★★
+const getMaxNumberFromString = (str: string): number | null => {
+  if (!str || typeof str !== 'string') {
+    return null;
+  }
+  const normalizedStr = str
+    .replace(/[０-９，～－]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/,/g, '');
+  
+  const numbers = normalizedStr.match(/\d+/g);
+  if (!numbers) {
+    return null;
+  }
+  
+  const numericValues = numbers.map(n => parseInt(n, 10));
+  return Math.max(...numericValues);
+};
+
 
 // --- Computed Properties ---
 const mediumCategoriesToShow = computed(() => {
@@ -131,42 +150,33 @@ const mediumCategoriesToShow = computed(() => {
 
 const filteredRecipes = computed(() => {
   return recipes.value.filter(recipe => {
-    // 1. 「この材料を含む」フィルターのチェック
+    // 材料フィルター
     if (mustIncludeIngredient.value) {
       const query = mustIncludeIngredient.value.toLowerCase();
-      if (!recipe.recipeMaterial.some(material => material.toLowerCase().includes(query))) {
-        return false;
-      }
+      if (!recipe.recipeMaterial.some(material => material.toLowerCase().includes(query))) return false;
     }
 
-    // 2. 「調理時間」フィルターのチェック
+    // 調理時間フィルター
     if (timeFilter.value) {
       const maxTime = parseInt(timeFilter.value, 10);
-      const match = recipe.recipeIndication.match(/(\d+)/);
-      if (match) {
-        const recipeTime = parseInt(match[1], 10);
-        if (recipeTime > maxTime) {
-          return false;
-        }
-      }
+      const recipeTime = getMaxNumberFromString(recipe.recipeIndication);
+      if (recipeTime === null || recipeTime > maxTime) return false;
     }
+    
+    // ★★★ 削除: カロリーと値段のフィルターロジックを削除 ★★★
 
-    // ★★★ 変更: 改善された「こだわり条件」のフィルターロジック ★★★
+    // こだわり条件フィルター
     if (selectedExclusionIds.value.length > 0) {
-      // 選択されたフィルターIDに対応するキーワードをすべて取得
       const allExclusionKeywords = selectedExclusionIds.value.flatMap(id => 
         exclusionFilters.find(f => f.id === id)?.keywords || []
       );
-      
-      // 除外キーワードのいずれかが材料に含まれていたら、このレシピは除外 (false)
-      if (allExclusionKeywords.some(exclusionKeyword => 
-        recipe.recipeMaterial.some(material => material.toLowerCase().includes(exclusionKeyword.toLowerCase()))
+      if (allExclusionKeywords.some(keyword => 
+        recipe.recipeMaterial.some(material => material.toLowerCase().includes(keyword.toLowerCase()))
       )) {
         return false;
       }
     }
 
-    // 全てのフィルター条件を通過した場合のみ、このレシピを含める (true)
     return true;
   });
 });
@@ -203,13 +213,12 @@ const getRanking = async () => {
   // フィルターをリセット
   mustIncludeIngredient.value = '';
   timeFilter.value = '';
-  // ★★★ 変更: selectedExclusionIdsをリセット ★★★
   selectedExclusionIds.value = [];
+  // ★★★ 削除: カロリーと値段のリセット処理を削除 ★★★
 
   try {
     const response = await fetch(`/api/recipe-ranking?categoryId=${categoryId}`);
     const data = await response.json();
-
     if (response.ok && !data.error) {
       recipes.value = data.result;
     } else {
@@ -298,18 +307,27 @@ h1 {
 .additional-filters {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap; /* 折り返しを許可 */
   gap: 2rem;
   padding: 1.5rem;
   background-color: var(--card-background-color);
   border-radius: 8px;
   margin-bottom: 1rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: opacity 0.3s;
+}
+
+.additional-filters.disabled,
+.special-filters.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 200px;
 }
 
 .filter-group label {
@@ -323,7 +341,7 @@ h1 {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 1rem;
-  width: 200px;
+  width: 100%;
 }
 
 .special-filters {
@@ -332,6 +350,7 @@ h1 {
   border-radius: 8px;
   margin-bottom: 2rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: opacity 0.3s;
 }
 .filter-group-label {
   font-weight: bold;
