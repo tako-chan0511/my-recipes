@@ -5,7 +5,6 @@
 
       <!-- カテゴリ選択UI -->
       <div class="category-selector">
-        <!-- 大カテゴリ選択 -->
         <div class="select-wrapper">
           <select v-model="selectedLargeCategory" @change="onLargeCategoryChange">
             <option disabled value="">大カテゴリを選択</option>
@@ -14,7 +13,6 @@
             </option>
           </select>
         </div>
-        <!-- 中カテゴリ選択 -->
         <div class="select-wrapper">
           <select v-model="selectedMediumCategory" @change="getRanking" :disabled="!selectedLargeCategory">
             <option disabled value="">中カテゴリを選択</option>
@@ -25,15 +23,34 @@
         </div>
       </div>
 
-      <div v-if="loading" class="loading-spinner"></div>
-      <div v-if="error" class="error-message">{{ error }}</div>
-
-      <div v-if="!loading && recipes.length === 0 && !error" class="no-results">
-        <p>カテゴリを選択して、ランキングを表示してください。</p>
+      <!-- ★★★ 追加: 材料・時間フィルター ★★★ -->
+      <div v-if="recipes.length > 0" class="additional-filters">
+        <div class="filter-group">
+          <label for="ingredient-filter">材料で絞り込む:</label>
+          <input id="ingredient-filter" type="text" v-model="ingredientFilter" placeholder="例: チーズ、きのこ" />
+        </div>
+        <div class="filter-group">
+          <label for="time-filter">調理時間で絞り込む:</label>
+          <select id="time-filter" v-model="timeFilter">
+            <option value="">指定なし</option>
+            <option value="10">10分以内</option>
+            <option value="20">20分以内</option>
+            <option value="30">30分以内</option>
+          </select>
+        </div>
       </div>
 
+      <div v-if="loading" class="loading-spinner"></div>
+      <div v-if="error" class="error-message">{{ error }}</div>
+      
+      <!-- ★★★ 変更: filteredRecipesを使う ★★★ -->
+      <div v-if="!loading && filteredRecipes.length === 0 && !error" class="no-results">
+        <p>表示するレシピがありません。<br>カテゴリを選択するか、フィルター条件を変更してください。</p>
+      </div>
+
+      <!-- ★★★ 変更: filteredRecipesをループ ★★★ -->
       <div class="results-grid">
-        <div v-for="(recipe, index) in recipes" :key="recipe.recipeId" class="recipe-card">
+        <div v-for="(recipe, index) in filteredRecipes" :key="recipe.recipeId" class="recipe-card">
           <div class="rank">{{ index + 1 }}位</div>
           <img :src="recipe.foodImageUrl" :alt="recipe.recipeTitle" @error="onImageError" />
           <div class="card-content">
@@ -50,37 +67,77 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 
-// 型定義
+// --- 型定義 ---
 interface Category {
   categoryId: string;
   categoryName: string;
   parentCategoryId?: string;
 }
+interface Recipe {
+  recipeId: number;
+  foodImageUrl: string;
+  recipeTitle: string;
+  recipeDescription: string;
+  recipeUrl: string;
+  recipeMaterial: string[];
+  recipeIndication: string;
+}
 
-// リアクティブなState
+// --- リアクティブなState ---
 const largeCategories = ref<Category[]>([]);
 const mediumCategories = ref<Category[]>([]);
 const selectedLargeCategory = ref('');
 const selectedMediumCategory = ref('');
 
-const recipes = ref<any[]>([]);
+const recipes = ref<Recipe[]>([]);
 const loading = ref(false);
 const error = ref('');
 
-// 中カテゴリの絞り込み
+// ★★★ 追加: フィルター用のState ★★★
+const ingredientFilter = ref('');
+const timeFilter = ref('');
+
+// --- Computed Properties ---
 const mediumCategoriesToShow = computed(() => {
   if (!selectedLargeCategory.value) return [];
   return mediumCategories.value.filter(cat => cat.parentCategoryId === selectedLargeCategory.value);
 });
 
-// 大カテゴリが変更された時の処理
+// ★★★ 追加: 絞り込み後のレシピリスト ★★★
+const filteredRecipes = computed(() => {
+  let filtered = [...recipes.value];
+
+  // 材料フィルター
+  if (ingredientFilter.value) {
+    const query = ingredientFilter.value.toLowerCase();
+    filtered = filtered.filter(recipe => 
+      recipe.recipeMaterial.some(material => material.toLowerCase().includes(query))
+    );
+  }
+
+  // 調理時間フィルター
+  if (timeFilter.value) {
+    const maxTime = parseInt(timeFilter.value, 10);
+    filtered = filtered.filter(recipe => {
+      const match = recipe.recipeIndication.match(/(\d+)/); // "約15分" から "15" を抽出
+      if (match) {
+        const recipeTime = parseInt(match[1], 10);
+        return recipeTime <= maxTime;
+      }
+      return true; // 時間情報がない場合は除外しない
+    });
+  }
+
+  return filtered;
+});
+
+// --- Methods ---
 const onLargeCategoryChange = () => {
-  selectedMediumCategory.value = ''; // 中カテゴリの選択をリセット
-  recipes.value = []; // ランキング表示をクリア
-  error.value = ''; // エラーメッセージをクリア
+  selectedMediumCategory.value = '';
+  recipes.value = [];
+  error.value = '';
 };
 
-// カテゴリ一覧を取得する関数
 const fetchCategories = async () => {
   try {
     const response = await fetch('/api/get-categories');
@@ -96,34 +153,25 @@ const fetchCategories = async () => {
   }
 };
 
-// ランキングを取得する関数
 const getRanking = async () => {
-  const largeCatId = selectedLargeCategory.value;
-  const mediumCatId = selectedMediumCategory.value;
-
-  // 両方のカテゴリが選択されていることを確認
-  if (!largeCatId || !mediumCatId) return;
-
-  // ★★★ 修正点: 正しいカテゴリIDの形式（親-子）を組み立てる ★★★
-  const categoryId = `${largeCatId}-${mediumCatId}`;
+  const categoryId = `${selectedLargeCategory.value}-${selectedMediumCategory.value}`;
+  if (!selectedLargeCategory.value || !selectedMediumCategory.value) return;
 
   loading.value = true;
   error.value = '';
   recipes.value = [];
+  // フィルターをリセット
+  ingredientFilter.value = '';
+  timeFilter.value = '';
 
   try {
     const response = await fetch(`/api/recipe-ranking?categoryId=${categoryId}`);
     const data = await response.json();
 
-    if (response.ok) {
-      // 楽天APIはstatus 200でも、結果がない場合にerrorフィールドを含むことがある
-      if (data.error) {
-         error.value = data.error_description || `カテゴリ「${categoryId}」のランキングが見つかりませんでした。`;
-      } else {
-         recipes.value = data.result;
-      }
+    if (response.ok && !data.error) {
+      recipes.value = data.result;
     } else {
-      error.value = data.error_description || 'ランキングの取得に失敗しました。';
+      error.value = data.error_description || `カテゴリ「${categoryId}」のランキングが見つかりませんでした。`;
     }
   } catch (e) {
     error.value = '通信エラーが発生しました。';
@@ -132,12 +180,10 @@ const getRanking = async () => {
   }
 };
 
-// 画像の読み込みに失敗した場合の代替処理
 const onImageError = (event: Event) => {
   (event.target as HTMLImageElement).src = 'https://placehold.co/300x300/eee/ccc?text=No+Image';
 };
 
-// コンポーネントがマウントされた時にカテゴリ一覧を取得
 onMounted(fetchCategories);
 </script>
 
@@ -204,7 +250,38 @@ h1 {
   background-color: var(--card-background-color);
   font-size: 1rem;
   cursor: pointer;
-  appearance: none; /* ブラウザ標準の矢印を消す */
+  appearance: none;
+}
+
+/* ★★★ 追加: フィルターUIのスタイル ★★★ */
+.additional-filters {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1.5rem;
+  background-color: var(--card-background-color);
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
 }
 
 .loading-spinner {
