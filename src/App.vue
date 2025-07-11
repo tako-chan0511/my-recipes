@@ -2,24 +2,34 @@
   <div id="app">
     <div class="recipe-container">
       <h1>楽天レシピ カテゴリ別ランキング</h1>
-      <div class="category-buttons">
-        <button 
-          v-for="category in categories" 
-          :key="category.id" 
-          @click="getRanking(category.id)"
-          :class="{ active: activeCategoryId === category.id }"
-        >
-          {{ category.name }}
-        </button>
+
+      <!-- カテゴリ選択UI -->
+      <div class="category-selector">
+        <!-- 大カテゴリ選択 -->
+        <div class="select-wrapper">
+          <select v-model="selectedLargeCategory" @change="onLargeCategoryChange">
+            <option disabled value="">大カテゴリを選択</option>
+            <option v-for="cat in largeCategories" :key="cat.categoryId" :value="cat.categoryId">
+              {{ cat.categoryName }}
+            </option>
+          </select>
+        </div>
+        <!-- 中カテゴリ選択 -->
+        <div class="select-wrapper">
+          <select v-model="selectedMediumCategory" @change="getRanking" :disabled="!selectedLargeCategory">
+            <option disabled value="">中カテゴリを選択</option>
+            <option v-for="cat in mediumCategoriesToShow" :key="cat.categoryId" :value="cat.categoryId">
+              {{ cat.categoryName }}
+            </option>
+          </select>
+        </div>
       </div>
 
-      <!-- ローディング表示をスピナーに変更 -->
       <div v-if="loading" class="loading-spinner"></div>
-      
       <div v-if="error" class="error-message">{{ error }}</div>
 
       <div v-if="!loading && recipes.length === 0 && !error" class="no-results">
-        <p>カテゴリを選択してください。</p>
+        <p>カテゴリを選択して、ランキングを表示してください。</p>
       </div>
 
       <div class="results-grid">
@@ -38,34 +48,80 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 
-// レシピカテゴリの定義
-const categories = [
-  { id: '30', name: '豚肉' },
-  { id: '31', name: '鶏肉' },
-  { id: '32', name: '牛肉' },
-  { id: '14', name: 'パスタ' },
-  { id: '22', name: 'カレー' },
-];
+// 型定義
+interface Category {
+  categoryId: string;
+  categoryName: string;
+  parentCategoryId?: string;
+}
+
+// リアクティブなState
+const largeCategories = ref<Category[]>([]);
+const mediumCategories = ref<Category[]>([]);
+const selectedLargeCategory = ref('');
+const selectedMediumCategory = ref('');
 
 const recipes = ref<any[]>([]);
 const loading = ref(false);
 const error = ref('');
-const activeCategoryId = ref<string | null>(null);
 
-const getRanking = async (categoryId: string) => {
+// 中カテゴリの絞り込み
+const mediumCategoriesToShow = computed(() => {
+  if (!selectedLargeCategory.value) return [];
+  return mediumCategories.value.filter(cat => cat.parentCategoryId === selectedLargeCategory.value);
+});
+
+// 大カテゴリが変更された時の処理
+const onLargeCategoryChange = () => {
+  selectedMediumCategory.value = ''; // 中カテゴリの選択をリセット
+  recipes.value = []; // ランキング表示をクリア
+  error.value = ''; // エラーメッセージをクリア
+};
+
+// カテゴリ一覧を取得する関数
+const fetchCategories = async () => {
+  try {
+    const response = await fetch('/api/get-categories');
+    const data = await response.json();
+    if (response.ok) {
+      largeCategories.value = data.large;
+      mediumCategories.value = data.medium;
+    } else {
+      error.value = 'カテゴリ一覧の取得に失敗しました。';
+    }
+  } catch (e) {
+    error.value = 'カテゴリ一覧の取得中に通信エラーが発生しました。';
+  }
+};
+
+// ランキングを取得する関数
+const getRanking = async () => {
+  const largeCatId = selectedLargeCategory.value;
+  const mediumCatId = selectedMediumCategory.value;
+
+  // 両方のカテゴリが選択されていることを確認
+  if (!largeCatId || !mediumCatId) return;
+
+  // ★★★ 修正点: 正しいカテゴリIDの形式（親-子）を組み立てる ★★★
+  const categoryId = `${largeCatId}-${mediumCatId}`;
+
   loading.value = true;
   error.value = '';
   recipes.value = [];
-  activeCategoryId.value = categoryId;
 
   try {
     const response = await fetch(`/api/recipe-ranking?categoryId=${categoryId}`);
     const data = await response.json();
 
     if (response.ok) {
-      recipes.value = data.result;
+      // 楽天APIはstatus 200でも、結果がない場合にerrorフィールドを含むことがある
+      if (data.error) {
+         error.value = data.error_description || `カテゴリ「${categoryId}」のランキングが見つかりませんでした。`;
+      } else {
+         recipes.value = data.result;
+      }
     } else {
       error.value = data.error_description || 'ランキングの取得に失敗しました。';
     }
@@ -80,11 +136,14 @@ const getRanking = async (categoryId: string) => {
 const onImageError = (event: Event) => {
   (event.target as HTMLImageElement).src = 'https://placehold.co/300x300/eee/ccc?text=No+Image';
 };
+
+// コンポーネントがマウントされた時にカテゴリ一覧を取得
+onMounted(fetchCategories);
 </script>
 
 <style>
 :root {
-  --primary-color: #BF0000; /* 楽天のブランドカラー */
+  --primary-color: #BF0000;
   --background-color: #f7f7f7;
   --card-background-color: #ffffff;
   --text-color: #333333;
@@ -114,7 +173,7 @@ h1 {
   margin-bottom: 2rem;
 }
 
-.category-buttons {
+.category-selector {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
@@ -122,26 +181,30 @@ h1 {
   margin-bottom: 2rem;
 }
 
-.category-buttons button {
-  padding: 0.75rem 1.5rem;
+.select-wrapper {
+  position: relative;
+  width: 250px;
+}
+
+.select-wrapper::after {
+  content: '▼';
+  font-size: 0.8rem;
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.select-wrapper select {
+  width: 100%;
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 2rem;
+  border-radius: 8px;
   background-color: var(--card-background-color);
-  color: var(--text-color);
   font-size: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-}
-
-.category-buttons button:hover {
-  background-color: #f0f0f0;
-  border-color: #ccc;
-}
-
-.category-buttons button.active {
-  background-color: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
+  appearance: none; /* ブラウザ標準の矢印を消す */
 }
 
 .loading-spinner {
