@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="recipe-container">
-      <h1>楽天レシピ カテゴリ別ランキング!</h1>
+      <h1>楽天レシピ カテゴリ別ランキング!!</h1>
       <div class="category-buttons">
         <button v-for="category in categories" :key="category.id" @click="getRanking(category.id)">
           {{ category.name }}
