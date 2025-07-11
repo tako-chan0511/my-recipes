@@ -23,7 +23,7 @@
         </div>
       </div>
 
-      <!-- ★★★ 変更: 高機能フィルター ★★★ -->
+      <!-- 高機能フィルター -->
       <div v-if="recipes.length > 0" class="additional-filters">
         <!-- 材料フィルター (プルダウン) -->
         <div class="filter-group">
@@ -45,12 +45,13 @@
         </div>
       </div>
       
-      <!-- ★★★ 追加: こだわり条件フィルター ★★★ -->
+      <!-- こだわり条件フィルター -->
       <div v-if="recipes.length > 0" class="special-filters">
         <label class="filter-group-label">こだわり条件 (含まない材料):</label>
         <div class="checkbox-group">
           <div v-for="filter in exclusionFilters" :key="filter.id" class="checkbox-wrapper">
-            <input type="checkbox" :id="filter.id" :value="filter.keyword" v-model="selectedExclusions" />
+            <!-- ★★★ 変更: v-modelとvalueを修正 ★★★ -->
+            <input type="checkbox" :id="filter.id" :value="filter.id" v-model="selectedExclusionIds" />
             <label :for="filter.id">{{ filter.label }}</label>
           </div>
         </div>
@@ -100,10 +101,11 @@ interface Recipe {
 
 // --- 定数データ ---
 const popularIngredients = ['卵', '牛乳', 'チーズ', '鶏肉', '豚肉', '牛肉', 'きのこ', 'トマト', '玉ねぎ'];
+// ★★★ 変更: 複数のキーワードをチェックできるように改善 ★★★
 const exclusionFilters = [
-  { id: 'exclude-egg', label: '卵アレルギー対応', keyword: '卵' },
-  { id: 'exclude-milk', label: '乳製品アレルギー対応', keyword: '牛乳' },
-  { id: 'exclude-pork', label: '豚肉不使用 (ハラル等)', keyword: '豚肉' },
+  { id: 'exclude-egg', label: '卵アレルギー対応', keywords: ['卵', 'たまご', 'egg'] },
+  { id: 'exclude-milk', label: '乳製品アレルギー対応', keywords: ['牛乳', 'ミルク', 'チーズ', 'バター', 'ヨーグルト', '生クリーム', '乳', 'milk', 'cheese', 'butter', 'yogurt', 'cream'] },
+  { id: 'exclude-pork', label: '豚肉不使用 (ハラル等)', keywords: ['豚', 'ポーク', 'pork'] },
 ];
 
 // --- リアクティブなState ---
@@ -116,10 +118,10 @@ const recipes = ref<Recipe[]>([]);
 const loading = ref(false);
 const error = ref('');
 
-// ★★★ 変更: フィルター用のState ★★★
 const mustIncludeIngredient = ref('');
 const timeFilter = ref('');
-const selectedExclusions = ref<string[]>([]); // チェックボックスで選択された除外キーワード
+// ★★★ 変更: 選択されたフィルターのIDを保持するように変更 ★★★
+const selectedExclusionIds = ref<string[]>([]);
 
 // --- Computed Properties ---
 const mediumCategoriesToShow = computed(() => {
@@ -128,40 +130,45 @@ const mediumCategoriesToShow = computed(() => {
 });
 
 const filteredRecipes = computed(() => {
-  let filtered = [...recipes.value];
+  return recipes.value.filter(recipe => {
+    // 1. 「この材料を含む」フィルターのチェック
+    if (mustIncludeIngredient.value) {
+      const query = mustIncludeIngredient.value.toLowerCase();
+      if (!recipe.recipeMaterial.some(material => material.toLowerCase().includes(query))) {
+        return false;
+      }
+    }
 
-  // 1. この材料を含む (Must Include)
-  if (mustIncludeIngredient.value) {
-    const query = mustIncludeIngredient.value.toLowerCase();
-    filtered = filtered.filter(recipe => 
-      recipe.recipeMaterial.some(material => material.toLowerCase().includes(query))
-    );
-  }
-
-  // 2. 調理時間
-  if (timeFilter.value) {
-    const maxTime = parseInt(timeFilter.value, 10);
-    filtered = filtered.filter(recipe => {
+    // 2. 「調理時間」フィルターのチェック
+    if (timeFilter.value) {
+      const maxTime = parseInt(timeFilter.value, 10);
       const match = recipe.recipeIndication.match(/(\d+)/);
       if (match) {
         const recipeTime = parseInt(match[1], 10);
-        return recipeTime <= maxTime;
+        if (recipeTime > maxTime) {
+          return false;
+        }
       }
-      return true;
-    });
-  }
+    }
 
-  // 3. こだわり条件 (Exclude)
-  if (selectedExclusions.value.length > 0) {
-    filtered = filtered.filter(recipe => {
-      // 選択された除外キーワードのいずれかが、材料に含まれていたら "false" (除外)
-      return !selectedExclusions.value.some(exclusionKeyword => 
-        recipe.recipeMaterial.some(material => material.toLowerCase().includes(exclusionKeyword.toLowerCase()))
+    // ★★★ 変更: 改善された「こだわり条件」のフィルターロジック ★★★
+    if (selectedExclusionIds.value.length > 0) {
+      // 選択されたフィルターIDに対応するキーワードをすべて取得
+      const allExclusionKeywords = selectedExclusionIds.value.flatMap(id => 
+        exclusionFilters.find(f => f.id === id)?.keywords || []
       );
-    });
-  }
+      
+      // 除外キーワードのいずれかが材料に含まれていたら、このレシピは除外 (false)
+      if (allExclusionKeywords.some(exclusionKeyword => 
+        recipe.recipeMaterial.some(material => material.toLowerCase().includes(exclusionKeyword.toLowerCase()))
+      )) {
+        return false;
+      }
+    }
 
-  return filtered;
+    // 全てのフィルター条件を通過した場合のみ、このレシピを含める (true)
+    return true;
+  });
 });
 
 // --- Methods ---
@@ -196,7 +203,8 @@ const getRanking = async () => {
   // フィルターをリセット
   mustIncludeIngredient.value = '';
   timeFilter.value = '';
-  selectedExclusions.value = [];
+  // ★★★ 変更: selectedExclusionIdsをリセット ★★★
+  selectedExclusionIds.value = [];
 
   try {
     const response = await fetch(`/api/recipe-ranking?categoryId=${categoryId}`);
@@ -294,7 +302,7 @@ h1 {
   padding: 1.5rem;
   background-color: var(--card-background-color);
   border-radius: 8px;
-  margin-bottom: 1rem; /* 変更 */
+  margin-bottom: 1rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
@@ -315,10 +323,9 @@ h1 {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 1rem;
-  width: 200px; /* 幅を固定 */
+  width: 200px;
 }
 
-/* ★★★ 追加: こだわり条件フィルターのスタイル ★★★ */
 .special-filters {
   padding: 1.5rem;
   background-color: var(--card-background-color);
