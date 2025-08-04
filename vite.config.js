@@ -2,19 +2,18 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 export default defineConfig({
     plugins: [vue()],
-    root: '.', // プロジェクトルート（デフォルト）
+    root: '.', // プロジェクトルート
+    base: './', // Vercelで静的相対パスで配信するため
     build: {
-        outDir: 'dist', // ← distにビルド（このままでOK）
+        outDir: 'dist'
     },
-    base: './', // ← Vercelで相対パス解決できるように
     server: {
         proxy: {
-            // '/api'で始まるリクエストを、Vercelのローカルサーバー(通常はポート3000)に転送
             '/api': {
                 target: 'http://localhost:8686',
-                changeOrigin: true,
-                // rewrite: (path) => path.replace(/^\/api/, '') // ←ここ追加！
-            },
-        },
-    },
+                changeOrigin: true
+                // rewrite: (path) => path.replace(/^\/api/, '') // ← prefix=/api をFastAPI側で吸収してるので不要
+            }
+        }
+    }
 });
