@@ -1,8 +1,13 @@
 {
-  "rewrites": [
+  "version": 3,
+  "builds": [
     {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
+      "src": "api/main.py",
+      "use": "@vercel/python"
     }
+  ],
+  "routes": [
+    { "src": "/api/get-categories", "dest": "api/main.py" },
+    { "src": "/api/recipe-ranking", "dest": "api/main.py" }
   ]
 }
