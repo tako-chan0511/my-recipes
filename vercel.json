@@ -1,13 +1,17 @@
 {
-  "version": 3,
+  "version": 2,
   "builds": [
     {
       "src": "api/main.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "frontend/index.html",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
-    { "src": "/api/get-categories", "dest": "api/main.py" },
-    { "src": "/api/recipe-ranking", "dest": "api/main.py" }
+    { "src": "/api/.*", "dest": "api/main.py" },
+    { "src": "/(.*)", "dest": "/frontend/$1" }
   ]
 }
