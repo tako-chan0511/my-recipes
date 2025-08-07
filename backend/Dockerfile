@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # アプリケーションコードをコピー
-COPY ./api ./api
+COPY api/ ./api
 
 # ポート8686を公開
 EXPOSE 8686
