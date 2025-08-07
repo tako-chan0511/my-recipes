@@ -4,12 +4,15 @@ services:
   backend:
     build: ./backend
     restart: always
-    ports:
-      - "8686:8686"
+    # ▼▼▼ backendのportsセクションを削除、またはコメントアウト ▼▼▼
+    # ports:
+    #   - "8686:8686" 
     command: uvicorn api.main:app --host 0.0.0.0 --port 8686
+    env_file:
+      - ./backend/.env
 
   frontend:
     build: ./frontend
     restart: always
     ports:
-      - "8080:80" # ホストの8080をコンテナの80にマッピング
+      - "8080:80"
