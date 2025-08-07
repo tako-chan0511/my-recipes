@@ -1,4 +1,4 @@
-# backend/Dockerfile
+# backend/Dockerfile (最終確定版)
 
 # Pythonの公式イメージをベースにする
 FROM python:3.11-slim
@@ -11,13 +11,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# --- ▼▼▼ ここから下が変更点 ▼▼▼ ---
-
-# アプリケーションコードをコピー (backendディレクトリの中身を全てコピー)
-COPY . .
+# アプリケーションコードをコピー
+COPY api/ ./api/
 
 # ポート8686を公開
 EXPOSE 8686
 
-# コンテナ起動時に実行するコマンド (main.pyを直接指定)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8686"]
+# コンテナ起動時に実行するコマンド
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8686"]
