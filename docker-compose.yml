@@ -16,3 +16,6 @@ services:
     restart: always
     ports:
       - "8080:80"
+    environment:
+      # Nginxが転送する先のURLを定義
+      - PROXY_PASS=http://backend:8686
