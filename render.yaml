@@ -5,7 +5,6 @@ services:
     runtime: docker
     repo: https://github.com/tako-chan0511/my-recipes
     branch: hara_20250807_CICD
-    # region: singapore  <-- この行を削除
     plan: free
     healthCheckPath: /docs
     envVars:
@@ -19,10 +18,12 @@ services:
     runtime: docker
     repo: https://github.com/tako-chan0511/my-recipes
     branch: hara_20250807_CICD
-    # region: singapore  <-- この行を削除
     plan: free
     envVars:
       - key: PROXY_PASS
         value: http://my-recipes-backend:8686
     dockerContext: ./frontend
     dockerfilePath: ./frontend/Dockerfile
+    # 以下の3行を追記
+    dependsOn:
+      - service: my-recipes-backend
