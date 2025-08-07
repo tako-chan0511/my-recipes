@@ -22,6 +22,10 @@ services:
     envVars:
       - key: PROXY_PASS
         value: http://my-recipes-backend:8686
+      - key: RENDER_DNS_RESOLVER_IP
+        fromService:
+          type: pserv
+          name: my-recipes-backend
     dockerContext: ./frontend
     dockerfilePath: ./frontend/Dockerfile
     dependsOn:
