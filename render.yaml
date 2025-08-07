@@ -3,13 +3,13 @@ services:
   - name: my-recipes-backend
     type: web
     runtime: docker
-    repo: https://github.com/tako-chan0511/my-recipes # あなたのリポジトリURL
+    repo: https://github.com/tako-chan0511/my-recipes
     branch: hara_20250807_CICD
-    region: singapore
+    # region: singapore  <-- この行を削除
     plan: free
     healthCheckPath: /docs
     envVars:
-      - fromGroup: my-recipes-secrets # 環境変数グループから読み込み
+      - fromGroup: my-recipes-secrets
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
 
@@ -17,9 +17,9 @@ services:
   - name: my-recipes-frontend
     type: web
     runtime: docker
-    repo: https://github.com/tako-chan0511/my-recipes # あなたのリポジトリURL
+    repo: https://github.com/tako-chan0511/my-recipes
     branch: hara_20250807_CICD
-    region: singapore
+    # region: singapore  <-- この行を削除
     plan: free
     envVars:
       - key: PROXY_PASS
