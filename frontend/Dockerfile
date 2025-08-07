@@ -3,20 +3,16 @@
 # --- ビルドステージ ---
 FROM node:20-alpine as build-stage
 WORKDIR /app
-
-# ▼▼▼ パスから「frontend/」を削除 ▼▼▼
 COPY package*.json ./
 RUN npm install
-
-# ▼▼▼ パスから「frontend/」を削除 ▼▼▼
 COPY . .
 RUN npm run build
 
 # --- プロダクションステージ ---
 FROM nginx:stable-alpine as production-stage
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-
-# ▼▼▼ パスから「frontend/」を削除 ▼▼▼
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from-build-stage /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+
+# ▼▼▼ このCMD命令を修正 ▼▼▼
+CMD ["sh", "-c", "envsubst '${PROXY_PASS}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
