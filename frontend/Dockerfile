@@ -1,15 +1,22 @@
-# my-recipes/frontend/Dockerfile
+# frontend/Dockerfile (最終確定版)
 
 # --- ビルドステージ ---
 FROM node:20-alpine as build-stage
-# ... (ここは変更なし)
+WORKDIR /app
+
+# ▼▼▼ パスから「frontend/」を削除 ▼▼▼
+COPY package*.json ./
+RUN npm install
+
+# ▼▼▼ パスから「frontend/」を削除 ▼▼▼
+COPY . .
 RUN npm run build
 
 # --- プロダクションステージ ---
 FROM nginx:stable-alpine as production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
-# ▼▼▼ この行を修正 ▼▼▼
-COPY nginx.conf /etc/nginx/templates/default.conf.template
+
+# ▼▼▼ パスから「frontend/」を削除 ▼▼▼
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
-# ▼▼▼ この行を修正/追記 ▼▼▼
-CMD ["/bin/sh", "-c", "envsubst '${PROXY_PASS}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["nginx", "-g", "daemon off;"]
