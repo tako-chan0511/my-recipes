@@ -24,6 +24,5 @@ services:
         value: http://my-recipes-backend:8686
     dockerContext: ./frontend
     dockerfilePath: ./frontend/Dockerfile
-    # 以下の3行を追記
     dependsOn:
       - service: my-recipes-backend
