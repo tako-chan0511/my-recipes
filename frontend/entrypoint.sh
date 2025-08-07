@@ -1,11 +1,7 @@
 #!/bin/sh
 
-# DockerのDNSリゾルバを取得
-RESOLVER=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
-
-# 環境変数をnginx.conf.templateに適用して、新しい設定ファイルを生成
-# DockerのDNSをresolverとして設定
-envsubst '${PROXY_PASS} ${RESOLVER}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
+# PROXY_PASS(バックエンドURL)とRENDER_DNS_RESOLVER_IP(RenderのDNS)をNginx設定に埋め込む
+envsubst '${PROXY_PASS} ${RENDER_DNS_RESOLVER_IP}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
 
 # Nginxを起動
 nginx -g 'daemon off;'
