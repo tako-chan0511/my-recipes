@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
-@router.get("/categories")  # ✅ REST風にURL変更
+@router.get("/get-categories")  # ✅ REST風にURL変更
 async def get_categories():
     try:
         app_id = os.getenv("RAKUTEN_APP_ID")
