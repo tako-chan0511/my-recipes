@@ -17,21 +17,12 @@ load_dotenv()
 app = FastAPI()
 
 # --- APIルートの設定 ---
-# (これは変更なし)
 app.include_router(categories_router, prefix="/api")
 app.include_router(ranking_router, prefix="/api")
 
-
 # --- フロントエンドの配信設定 ---
-# ↓↓↓ この部分を、より確実なパスの指定方法に修正します ↓↓↓
-
-# このmain.pyファイルがある場所を基準点とする
 current_file_path = Path(__file__).parent
-
-# この基準点から、distディレクトリへの相対パスを構築する
-# (../../dist と同じ意味)
 dist_path = current_file_path.parent.parent / "dist"
 
-# 静的ファイル配信のマウント
-# 必ず、APIルートの後に記述する
+# 静的ファイル配信（必ずAPIルーターの後にマウント）
 app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
