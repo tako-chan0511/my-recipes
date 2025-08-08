@@ -1,0 +1,54 @@
+name: CI for my-recipes (hara_20250808_CI 専用)
+
+on:
+  push:
+    branches: [ hara_20250808_CI ]
+  pull_request:
+    branches: [ hara_20250808_CI ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+
+      # Python環境（FastAPI）
+      - name: ⚙️ Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: 🐍 Install backend dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: 🧪 Run FastAPI backend tests (if any)
+        run: |
+          if ls backend/tests/test_*.py 1> /dev/null 2>&1; then
+            pytest backend/tests/
+          else
+            echo "No backend tests found, skipping."
+          fi
+
+      # Node.js + frontend
+      - name: 🧰 Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: 📦 Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: 🔧 Build frontend (Vue)
+        run: |
+          cd frontend
+          npm run build
+
+      - name: ✅ Lint frontend (optional)
+        run: |
+          cd frontend
+          npm run lint || echo "⚠️ Lint warnings (non-blockin
