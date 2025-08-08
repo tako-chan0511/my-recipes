@@ -4,7 +4,7 @@ import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
-from pathlib import Path # pathlibをインポート
+from pathlib import Path
 
 # ルーターをインポート
 from .get_categories import router as categories_router
@@ -17,19 +17,21 @@ load_dotenv()
 app = FastAPI()
 
 # --- APIルートの設定 ---
+# (これは変更なし)
 app.include_router(categories_router, prefix="/api")
 app.include_router(ranking_router, prefix="/api")
 
 
 # --- フロントエンドの配信設定 ---
-# ↓↓↓ この部分を、より確実なパスの指定方法に変更します ↓↓↓
+# ↓↓↓ この部分を、より確実なパスの指定方法に修正します ↓↓↓
 
-# このファイルの場所を基準に、distディレクトリの絶対パスを構築
-# これにより、どこから実行されてもパスがずれることがなくなる
-dist_path = Path(__file__).parent.parent / "dist"
+# このmain.pyファイルがある場所を基準点とする
+current_file_path = Path(__file__).parent
 
-# 静的ファイルの配信設定
-if dist_path.exists():
-    app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
-else:
-    print(f"Warning: Static file directory not found at {dist_path}")
+# この基準点から、distディレクトリへの相対パスを構築する
+# (../../dist と同じ意味)
+dist_path = current_file_path.parent.parent / "dist"
+
+# 静的ファイル配信のマウント
+# 必ず、APIルートの後に記述する
+app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
