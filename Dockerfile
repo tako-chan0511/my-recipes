@@ -17,5 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/api/ ./api/
 COPY --from=frontend /app/frontend/dist/ ./dist/
 
-# FastAPI起動
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+# ✅ PORT 環境変数展開対応済み
+CMD sh -c "uvicorn api.main:app --host 0.0.0.0 --port ${PORT}"
