@@ -7,7 +7,7 @@ export default defineConfig({
     base: './',
     build: {
         // ✅ 出力先を backend/dist に変更
-        outDir: resolve(__dirname, '../backend/dist'),
+        outDir: resolve(__dirname, 'backend/dist'),
         emptyOutDir: true // 古いファイルをクリア
     },
     server: {

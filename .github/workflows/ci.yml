@@ -28,11 +28,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      # ✅ 修正点：PYTHONPATH=./backend としてテスト
-      - name: Run FastAPI tests
-        run: |
-          PYTHONPATH=./backend pytest backend/tests
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -45,3 +40,8 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+      # ✅ 修正点：PYTHONPATH=./backend としてテスト
+      - name: Run FastAPI tests
+        run: |
+          PYTHONPATH=./backend pytest backend/tests
+        continue-on-error: false # ✅ 明示的に失敗させる
