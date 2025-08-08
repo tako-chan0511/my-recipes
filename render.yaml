@@ -7,7 +7,7 @@ services:
     repo: https://github.com/tako-chan0511/my-recipes
     # 新しいブランチを指定
     branch: hara_20250808_CI
-    autoDeploy: true
+    autoDeploy: false
     # ルートにあるDockerfileを指定
     dockerfilePath: ./Dockerfile
     envVars:

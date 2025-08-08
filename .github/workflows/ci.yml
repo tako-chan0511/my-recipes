@@ -1,6 +1,6 @@
 # .github/workflows/ci.yml
 
-name: CI for my-recipes
+name: CI/CD for my-recipes
 
 on:
   push:
@@ -11,22 +11,12 @@ on:
       - hara_20250808_CI
 
 jobs:
+  # --- Ⅰ. テストとビルドを実行するジョブ ---
   test-and-build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Install backend dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -40,8 +30,30 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
-      # ✅ 修正点：PYTHONPATH=./backend としてテスト
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
       - name: Run FastAPI tests
-        run: |
-          PYTHONPATH=./backend pytest backend/tests
-        continue-on-error: false # ✅ 明示的に失敗させる
+        # pytestが楽天APIを呼び出すために、GitHubのSecretsからAPIキーを渡す
+        env:
+          PYTHONPATH: ./backend
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+        run: pytest backend/tests
+
+  # --- Ⅱ. Renderにデプロイを指示するジョブ ---
+  deploy-to-render:
+    # test-and-buildジョブが成功した場合のみ実行する
+    needs: test-and-build
+    # hara_20250808_CIブランチへのプッシュの場合のみ実行する
+    if: github.ref == 'refs/heads/hara_20250808_CI' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy
+        # GitHubのSecretsからDeploy HookのURLを呼び出す
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
