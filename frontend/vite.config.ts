@@ -1,20 +1,21 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [vue()],
   root: '.', 
   base: './',
   build: {
-    outDir: 'dist'
+    // ✅ 出力先を backend/dist に変更
+    outDir: resolve(__dirname, '../backend/dist'),
+    emptyOutDir: true // 古いファイルをクリア
   },
   server: {
-    // 変更点１：コンテナ外からのアクセスを許可
-    host: '0.0.0.0', 
-    port: 5173, // ポートも明記しておくと分かりやすい
+    host: '0.0.0.0',
+    port: 5173,
     proxy: {
       '/api': {
-        // 変更点２：ターゲットをDockerサービス名に変更
         target: 'http://backend:8686',
         changeOrigin: true
       }
