@@ -1,54 +1,56 @@
-name: CI for my-recipes (hara_20250808_CI 専用)
+name: CI for my-recipes
 
 on:
   push:
-    branches: [ hara_20250808_CI ]
+    branches:
+      - hara_20250808_CI
   pull_request:
-    branches: [ hara_20250808_CI ]
+    branches:
+      - hara_20250808_CI
 
 jobs:
-  build-and-test:
+  test-and-build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout repository
+      # ① リポジトリのコードを取得
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Python環境（FastAPI）
-      - name: ⚙️ Set up Python
+      # ② Python セットアップ
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      - name: 🐍 Install backend dependencies
+      # ③ バックエンド依存関係のインストール
+      - name: Install backend dependencies
+        working-directory: backend
         run: |
-          pip install -r backend/requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx
 
-      - name: 🧪 Run FastAPI backend tests (if any)
+      # ④ バックエンドのユニットテスト実行（PYTHONPATHを明示）
+      - name: Run FastAPI tests
+        working-directory: backend
+        env:
+          PYTHONPATH: ./backend
         run: |
-          if ls backend/tests/test_*.py 1> /dev/null 2>&1; then
-            pytest backend/tests/
-          else
-            echo "No backend tests found, skipping."
-          fi
+          pytest tests
 
-      # Node.js + frontend
-      - name: 🧰 Set up Node.js
-        uses: actions/setup-node@v3
+      # ⑤ Node.js セットアップ
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: 📦 Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
+      # ⑥ フロントエンド依存関係のインストール
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
 
-      - name: 🔧 Build frontend (Vue)
-        run: |
-          cd frontend
-          npm run build
-
-      - name: ✅ Lint frontend (optional)
-        run: |
-          cd frontend
-          npm run lint || echo "⚠️ Lint warnings (non-blockin
+      # ⑦ フロントエンドのビルド
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
