@@ -37,7 +37,7 @@ jobs:
         env:
           PYTHONPATH: ./backend
         run: |
-          pytest tests
+           PYTHONPATH=. pytest tests
 
       # ⑤ Node.js セットアップ
       - name: Set up Node.js
