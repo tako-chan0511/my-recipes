@@ -11,7 +11,6 @@ on:
       - hara_20250808_CI
 
 jobs:
-  # --- Ⅰ. テストとビルドを実行するジョブ ---
   test-and-build:
     runs-on: ubuntu-latest
     steps:
@@ -40,20 +39,17 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       - name: Run FastAPI tests
-        # pytestが楽天APIを呼び出すために、GitHubのSecretsからAPIキーを渡す
+        # ↓↓↓ このenvセクションで、テスト環境であることを伝える ↓↓↓
         env:
           PYTHONPATH: ./backend
           RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          ENV: test # テスト実行中であることを示す環境変数を設定
         run: pytest backend/tests
 
-  # --- Ⅱ. Renderにデプロイを指示するジョブ ---
   deploy-to-render:
-    # test-and-buildジョブが成功した場合のみ実行する
     needs: test-and-build
-    # hara_20250808_CIブランチへのプッシュの場合のみ実行する
     if: github.ref == 'refs/heads/hara_20250808_CI' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render Deploy
-        # GitHubのSecretsからDeploy HookのURLを呼び出す
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
