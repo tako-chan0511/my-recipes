@@ -1,9 +1,10 @@
-# api/main.py
+# backend/api/main.py
 
 import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+from pathlib import Path # pathlibをインポート
 
 # ルーターをインポート
 from .get_categories import router as categories_router
@@ -16,12 +17,19 @@ load_dotenv()
 app = FastAPI()
 
 # --- APIルートの設定 ---
-# /api というパスで、各APIを有効にする
 app.include_router(categories_router, prefix="/api")
 app.include_router(ranking_router, prefix="/api")
 
+
 # --- フロントエンドの配信設定 ---
-# このコードが、FastAPIにVue.jsの静的ファイルを配信させるための設定
-# "/app/dist" ディレクトリをルートURL("/")で公開する
-# html=True は、/ や /about のようなパスへのアクセス時に index.html を返すSPA向けのオプション
-app.mount("/", StaticFiles(directory="dist", html=True), name="static")
+# ↓↓↓ この部分を、より確実なパスの指定方法に変更します ↓↓↓
+
+# このファイルの場所を基準に、distディレクトリの絶対パスを構築
+# これにより、どこから実行されてもパスがずれることがなくなる
+dist_path = Path(__file__).parent.parent / "dist"
+
+# 静的ファイルの配信設定
+if dist_path.exists():
+    app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
+else:
+    print(f"Warning: Static file directory not found at {dist_path}")
