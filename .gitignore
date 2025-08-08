@@ -7,7 +7,7 @@ venv/
 # Build artifacts
 dist/
 dist-ssr/
-backend/dist/
+# backend/dist/
 
 # Logs
 logs
