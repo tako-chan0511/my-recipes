@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter()
 
-@router.get("/ranking")  # ✅ URLをシンプルに変更
+@router.get("/recipe-ranking")  # ✅ URLをシンプルに変更
 async def recipe_ranking(categoryId: str = Query(...)):
     app_id = os.getenv("RAKUTEN_APP_ID")
     if not app_id:
