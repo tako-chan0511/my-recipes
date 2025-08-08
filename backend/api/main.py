@@ -1,4 +1,4 @@
-# api/main.py
+# backend/api/main.py
 
 import os
 from fastapi import FastAPI
@@ -10,24 +10,28 @@ from pathlib import Path
 from .get_categories import router as categories_router
 from .recipe_ranking import router as ranking_router
 
-# .envファイルから環境変数を読み込む
-load_dotenv()
+def create_app(mount_static_files: bool = True) -> FastAPI:
+    """
+    FastAPIアプリケーションのインスタンスを作成して返すファクトリ関数。
+    """
+    # .envファイルから環境変数を読み込む
+    load_dotenv()
 
-# FastAPIアプリケーションのインスタンスを作成
-app = FastAPI()
+    # FastAPIアプリケーションのインスタンスを作成
+    app = FastAPI()
 
-# --- APIルートの設定 ---
-app.include_router(categories_router, prefix="/api")
-app.include_router(ranking_router, prefix="/api")
+    # --- APIルートの設定 ---
+    app.include_router(categories_router, prefix="/api")
+    app.include_router(ranking_router, prefix="/api")
 
+    # --- フロントエンドの配信設定 ---
+    # mount_static_filesフラグがTrueの場合のみ、静的ファイルをマウントする
+    if mount_static_files:
+        dist_path = Path(__file__).parent.parent / "dist"
+        if dist_path.exists():
+            app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
 
-# --- フロントエンドの配信設定 ---
-# ↓↓↓ これが、全てを解決する最後の修正です ↓↓↓
+    return app
 
-# 環境変数 "ENV" が "test" でない場合のみ、静的ファイルをマウントする
-# これにより、pytest実行中は、この処理がスキップされる
-if os.getenv("ENV") != "test":
-    dist_path = Path(__file__).parent.parent / "dist"
-    if dist_path.exists():
-        app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
-
+# Uvicornがこのファイルを実行したときに、デフォルトで本番用のアプリを作成する
+app = create_app()

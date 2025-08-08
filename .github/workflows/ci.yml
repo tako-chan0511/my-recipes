@@ -43,7 +43,7 @@ jobs:
         env:
           PYTHONPATH: ./backend
           RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
-          ENV: test # テスト実行中であることを示す環境変数を設定
+        #   ENV: test # テスト実行中であることを示す環境変数を設定
         run: pytest backend/tests
 
   deploy-to-render:
