@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="recipe-container">
-      <h1>楽天レシピ カテゴリ別ランキング</h1>
+      <h1>楽天レシピ カテゴリ別ランキング（Vue3）</h1>
 
       <!-- カテゴリ選択UI -->
       <div class="category-selector">
