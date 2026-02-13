@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8686:8686"
+    volumes:
+      - ./backend:/app
+    command: uvicorn api.main:app --reload --host 0.0.0.0 --port 8686
+    # ↓↓↓↓↓↓  ここから2行を追加  ↓↓↓↓↓↓
+    env_file:
+      - ./backend/.env
+    # ↑↑↑↑↑↑  ここまで2行を追加  ↑↑↑↑↑↑
+
+  frontend:
+    build:
+      context: ./frontend
+      target: build-stage
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev

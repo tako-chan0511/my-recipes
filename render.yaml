@@ -1,0 +1,14 @@
+services:
+  # サービスはこれ一つだけ
+  - name: my-recipes-app
+    type: web
+    runtime: docker
+    plan: free
+    repo: https://github.com/tako-chan0511/my-recipes
+    # 新しいブランチを指定
+    branch: hara_20250808
+    # ルートにあるDockerfileを指定
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # 楽天APIキーなどが含まれる環境変数グループ
+      - fromGroup: my-recipes-secrets
